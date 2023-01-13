@@ -75,9 +75,9 @@
 					<div
 						v-for="(t) in tickers"
 						:key="t.name"
-						@click="sel = t"
+						@click="select(t)"
 						:class="{
-							'border-4': sel === t,
+							'border-4': selected === t,
 						}"
 						class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
 					>
@@ -106,20 +106,22 @@
 			</template>
 
 			<section
-				v-if="sel"
+				v-if="selected"
 				class="relative"
 			>
 				<h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
-					{{ sel.name }} - USD
+					{{ selected.name }} - USD
 				</h3>
 				<div class="flex items-end border-gray-600 border-b border-l h-64">
-					<div class="bg-purple-800 border w-10 h-24"></div>
-					<div class="bg-purple-800 border w-10 h-32"></div>
-					<div class="bg-purple-800 border w-10 h-48"></div>
-					<div class="bg-purple-800 border w-10 h-16"></div>
+					<div
+						v-for="(bar, idx) in normalizeGraph()"
+						:key="idx"
+						:style="{height: `${bar}%`}"
+						class="bg-purple-800 border w-10"
+					/>
 				</div>
 				<button
-					@click="sel = null"
+					@click="selected = null"
 					type="button"
 					class="absolute top-0 right-0"
 				>
@@ -154,7 +156,7 @@ export default {
 	data: () => ({
 		ticker: '',
 		tickers: [],
-		sel: null,
+		selected: null,
 		graph: [],
 	}),
 	methods: {
@@ -170,15 +172,25 @@ export default {
 				const f = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=c2d9011a84d5cac502448c0c25146cd91ed482b7005e082ddb2c482dd6208726`)
 				const data = await f.json()
 				this.tickers.find(t => t.name === currentTicker.name).price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+				if (this.selected?.name === currentTicker.name) {
+					this.graph.push(data.USD)
+				}
 			}, 3000)
-			if (this.sel.name === currentTicker.name) {
-				this.graph.push(data.USD)
-			}
 		},
 		handleDelete(tickerToRemove) {
 			this.tickers = this.tickers.filter(t => t !== tickerToRemove)
 		},
-		// 13:50
+		normalizeGraph() {
+			const maxVal = Math.max(...this.graph)
+			const minVal = Math.min(...this.graph)
+			return this.graph.map(
+				price => 5 + ((price - minVal) * 95) / (maxVal - minVal)
+			)
+		},
+		select(ticker) {
+			this.selected = ticker
+			this.graph = []
+		},
 	}
 }
 </script>
