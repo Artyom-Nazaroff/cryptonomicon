@@ -43,7 +43,10 @@
 								CHD
 							</span>
 						</div>
-						<div class="text-sm text-red-600">
+						<div
+							v-if="isError"
+							class="text-sm text-red-600"
+						>
 							Такой тикер уже добавлен
 						</div>
 					</div>
@@ -158,7 +161,33 @@ export default {
 		tickers: [],
 		selected: null,
 		graph: [],
+		isError: false,
+		allCoinsList: [],
+		coincidences: []
 	}),
+	async mounted() {
+		try {
+			const coins = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
+			const allCoins = await coins.json()
+			Object.values(allCoins.Data).forEach(i => this.allCoinsList.push(i.FullName))
+		} catch (e) {
+			console.error(e.message);
+		}
+	},
+	watch: {
+		ticker(val) {
+			if (this.isError) this.isError = false
+			this.coincidences = []
+			if (val.length) {
+				this.allCoinsList.forEach(i => {
+					if (i.toLowerCase().includes(val.toLowerCase()) && this.coincidences.length <= 3) {
+						this.coincidences.push(i)
+					}
+				})
+			}
+			console.log(this.coincidences);
+		}
+	},
 	methods: {
 		add() {
 			const currentTicker = {
@@ -166,16 +195,24 @@ export default {
 				price: '-',
 			}
 
-			this.tickers.push(currentTicker)
-			this.ticker = ''
-			setInterval(async () => {
-				const f = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=c2d9011a84d5cac502448c0c25146cd91ed482b7005e082ddb2c482dd6208726`)
-				const data = await f.json()
-				this.tickers.find(t => t.name === currentTicker.name).price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
-				if (this.selected?.name === currentTicker.name) {
-					this.graph.push(data.USD)
+			this.tickers.forEach(t => {
+				if (t.name === currentTicker.name) {
+					this.isError = true
 				}
-			}, 3000)
+			})
+
+			if (!this.isError) {
+				this.tickers.push(currentTicker)
+				this.ticker = ''
+				setInterval(async () => {
+					const f = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=c2d9011a84d5cac502448c0c25146cd91ed482b7005e082ddb2c482dd6208726`)
+					const data = await f.json()
+					this.tickers.find(t => t.name === currentTicker.name).price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+					if (this.selected?.name === currentTicker.name) {
+						this.graph.push(data.USD)
+					}
+				}, 3000)
+			}
 		},
 		handleDelete(tickerToRemove) {
 			this.tickers = this.tickers.filter(t => t !== tickerToRemove)
